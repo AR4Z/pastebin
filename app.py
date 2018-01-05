@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 from bson.json_util import dumps
 
 import falcon
+from falcon_cors import CORS
 
 client = MongoClient(os.getenv('DB_host'), 27017)
 db = client.pastebin
@@ -16,6 +17,8 @@ paste_schema = Paste()
 
 
 def req_to_json(req):
+    data = req.stream.read(req.content_length or 0)
+    print(data)
     try:
         raw_json = req.stream.read()
     except Exception as ex:
@@ -74,7 +77,7 @@ class PasteViewResource:
     def on_post(self, req, resp, paste_id):
         result = db.pastes.find_one({'_id': paste_id})
         print(result)
-        if not result:
+        if not result or (datetime.strptime(result["date_expiration"], '%Y-%m-%d %H:%M:%S') <= datetime.now()):
             resp.status = falcon.HTTP_404
             return
 
@@ -85,6 +88,9 @@ class PasteViewResource:
         })
 
 
-api = falcon.API()
+cors = CORS(allow_origins_list=['http://127.0.0.1:8000'])
+
+api = falcon.API(middleware=[cors.middleware])
+
 api.add_route('/', PasteCreatorResource())
 api.add_route('/{paste_id}', PasteViewResource())
