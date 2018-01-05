@@ -1,6 +1,6 @@
 import json
 import os
-from utils.utils import time_string_to_seconds
+from utils.utils import time_string_to_seconds, req_to_json
 from data.schemas import Paste
 from datetime import datetime, timedelta
 from pymongo import MongoClient
@@ -15,31 +15,12 @@ db = client.pastebin
 
 paste_schema = Paste()
 
-
-def req_to_json(req):
-    data = req.stream.read(req.content_length or 0)
-    print(data)
-    try:
-        raw_json = req.stream.read()
-    except Exception as ex:
-        raise falcon.HTTPError(falcon.HTTP_400, 'Error', ex.message)
-
-    try:
-        result_json = json.loads(raw_json, encoding='utf-8')
-    except ValueError:
-        raise falcon.HTTPError(
-            falcon.HTTP_400,
-            'Malformed JSON',
-            'Could not decode the request body. The ',
-            'JSON was incorrect.'
-        )
-
-    return result_json
-
+cors = CORS(allow_all_origins=True, allow_all_methods=True, allow_all_headers=True)
 
 class PasteCreatorResource:
     def on_post(self, req, resp):
         paste = req_to_json(req)
+        print("mi paste", paste)
         date_expiration = str((datetime.now() +
                                     timedelta(seconds=time_string_to_seconds(
                                         paste["time_expiration"]))).strftime('%Y-%m-%d %H:%M:%S'))
@@ -87,8 +68,6 @@ class PasteViewResource:
             'paste': dumps(result)
         })
 
-
-cors = CORS(allow_origins_list=['http://127.0.0.1:8000'])
 
 api = falcon.API(middleware=[cors.middleware])
 
